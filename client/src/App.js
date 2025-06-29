@@ -11,12 +11,14 @@ import History from './pages/History';
 import Profile from './pages/Profile';
 import PrivateRoute from './components/PrivateRoute';
 import TestGemini from './components/TestGemini';
+import DummyDataUploader from './components/DummyDataUploader';
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <div className="min-h-screen bg-gray-900">
+          <DummyDataUploader />
           <Navbar />
           <div className="container mx-auto px-4 py-8">
             <Routes>

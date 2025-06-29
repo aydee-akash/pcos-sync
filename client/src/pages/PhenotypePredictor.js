@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { calculateSimilarity, compareNewSequences } from '../utils/sequenceUtils';
 import { generatePhenotypeExplanation, generateRecommendations } from '../services/geminiService';
 import PhenotypeReport from '../components/PhenotypeReport';
+import PhenotypeChart from '../components/PhenotypeChart';
+import axios from 'axios';
 
 const PhenotypePredictor = () => {
-  const { currentUser, addPhenotypeHistory, geneSequences } = useAuth();
+  const { currentUser, addPhenotypeHistory } = useAuth();
   const [comparisonData, setComparisonData] = useState([]);
   const [currentGene, setCurrentGene] = useState('');
   const [currentSequence, setCurrentSequence] = useState('');
@@ -13,7 +14,7 @@ const PhenotypePredictor = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [explanation, setExplanation] = useState('');
-  const [recommendations, setRecommendations] = useState([]);
+  const [recommendations, setRecommendations] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [sequenceError, setSequenceError] = useState('');
   const [customGeneName, setCustomGeneName] = useState('');
@@ -91,31 +92,40 @@ const PhenotypePredictor = () => {
     setError('');
     setResult(null);
     setExplanation('');
-    setRecommendations([]);
+    setRecommendations('');
 
     try {
       if (comparisonData.length === 0) {
         throw new Error('Please add at least one sequence for comparison');
       }
 
-      if (!geneSequences || geneSequences.length === 0) {
-        throw new Error('No gene sequences available for comparison. Please add some sequences first.');
-      }
+      // Prepare data for API call
+      const geneComparisons = comparisonData.map(([geneName, sequence]) => ({
+        geneName,
+        newSequence: sequence
+      }));
 
-      const probabilities = compareNewSequences(geneSequences, comparisonData);
-      setResult(probabilities);
+      console.log('Sending gene comparisons:', geneComparisons);
+
+      // Call the new API endpoint
+      const response = await axios.post('http://localhost:5000/api/compare-sequences', {
+        geneComparisons: geneComparisons
+      });
+
+      console.log('API Response:', response.data);
+      setResult(response.data);
 
       // Generate AI explanation and recommendations
       setAiLoading(true);
       try {
         const aiExplanation = await generatePhenotypeExplanation(
-          Math.max(...Object.values(probabilities)) / 100,
+          Math.max(...Object.values(response.data)) / 100,
           comparisonData.map(([_, seq]) => seq)
         );
         setExplanation(aiExplanation);
         
         const aiRecommendations = await generateRecommendations(
-          Math.max(...Object.values(probabilities)) / 100,
+          Math.max(...Object.values(response.data)) / 100,
           aiExplanation
         );
         setRecommendations(aiRecommendations);
@@ -128,15 +138,16 @@ const PhenotypePredictor = () => {
 
       // Save to history
       await addPhenotypeHistory(currentUser.uid, {
-        type: Object.entries(probabilities).reduce((a, b) => a[1] > b[1] ? a : b)[0],
-        probability: Math.max(...Object.values(probabilities)) / 100,
+        type: Object.entries(response.data).reduce((a, b) => a[1] > b[1] ? a : b)[0],
+        probability: Math.max(...Object.values(response.data)) / 100,
         sequences: comparisonData.map(([_, seq]) => seq),
         timestamp: new Date().toISOString()
       });
 
       setComparisonData([]);
     } catch (err) {
-      setError(err.message);
+      console.error('Comparison error:', err);
+      setError(err.response?.data?.error || err.message || 'Error comparing sequences');
     } finally {
       setLoading(false);
     }
@@ -259,6 +270,12 @@ const PhenotypePredictor = () => {
 
         {result && (
           <div className="mt-8 space-y-6">
+            {/* Phenotype Chart */}
+            <PhenotypeChart 
+              phenotypeData={result} 
+              title="Phenotype Probability Results" 
+            />
+
             <div className="bg-gray-700 rounded-lg p-6">
               <h2 className="text-xl font-bold text-white mb-4">Results</h2>
               <div className="space-y-4">
@@ -298,11 +315,10 @@ const PhenotypePredictor = () => {
                   <div className="h-4 bg-gray-600 rounded w-full"></div>
                 </div>
               ) : (
-                <ul className="list-disc list-inside space-y-2 text-gray-300">
-                  {recommendations.map((recommendation, index) => (
-                    <li key={index}>{recommendation}</li>
-                  ))}
-                </ul>
+                <div 
+                  className="text-gray-300 prose prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: recommendations }}
+                />
               )}
             </div>
           </div>

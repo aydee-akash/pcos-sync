@@ -87,14 +87,17 @@ export const generateRecommendations = async (similarity, explanation) => {
 
     const data = await response.json();
     const rawText = data.candidates[0].content.parts[0].text;
-    return formatMarkdown(rawText).split('<br>').filter(rec => rec.trim());
+    const formattedText = formatMarkdown(rawText);
+    
+    // Return the formatted HTML as a single string
+    return formattedText;
   } catch (error) {
     console.error('Error generating recommendations:', error);
-    return [
-      "Schedule a consultation with a genetic counselor",
-      "Consider additional genetic testing",
-      "Monitor for related symptoms and conditions",
-      "Maintain regular follow-ups with your healthcare provider"
-    ];
+    return `<ol>
+      <li>Schedule a consultation with a genetic counselor</li>
+      <li>Consider additional genetic testing</li>
+      <li>Monitor for related symptoms and conditions</li>
+      <li>Maintain regular follow-ups with your healthcare provider</li>
+    </ol>`;
   }
 }; 

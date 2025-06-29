@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { determinePhenotype } from '../utils/sequenceUtils';
+import { determinePhenotype, submitGeneSequenceToFirestore } from '../utils/sequenceUtils';
 
 const GeneSequence = () => {
   const { currentUser, addGeneSequence } = useAuth();
@@ -85,24 +85,21 @@ const GeneSequence = () => {
         throw new Error('Please fix the sequence validation errors before submitting.');
       }
 
-      const phenotype = determinePhenotype(criteriaA, criteriaB, criteriaC);
-      if (!phenotype) {
-        throw new Error('Invalid combination of criteria');
-      }
+      // Prepare form data for Firestore submission
+      const formData = {
+        geneName: geneName,
+        sequence: sequence,
+        cysts: criteriaA,
+        irregularCycle: criteriaB,
+        hyperandrogenism: criteriaC
+      };
 
-      await addGeneSequence(currentUser.uid, {
-        geneName,
-        sequence: sequence.toUpperCase(),
-        phenotype,
-        criteria: {
-          a: criteriaA,
-          b: criteriaB,
-          c: criteriaC
-        },
-        timestamp: new Date().toISOString()
-      });
-
-      setSuccess('Gene sequence added successfully');
+      // Submit to Firestore
+      const result = await submitGeneSequenceToFirestore(formData);
+      
+      setSuccess(result.message);
+      
+      // Reset form
       setGeneName('');
       setSequence('');
       setCriteriaA('');
@@ -110,6 +107,7 @@ const GeneSequence = () => {
       setCriteriaC('');
       setCustomGeneName('');
       setSequenceError('');
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -199,90 +197,108 @@ const GeneSequence = () => {
             </div>
             
             <div className="bg-gray-700 rounded-lg p-4 space-y-4">
-              <div className="flex items-start space-x-4">
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="Y"
-                    checked={criteriaA === 'Y'}
-                    onChange={(e) => setCriteriaA(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
-                </div>
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <label className="text-gray-300 font-medium cursor-pointer" onClick={() => setCriteriaA(criteriaA === 'Y' ? 'N' : 'Y')}>
+                  <label className="text-gray-300 font-medium">
                     Cysts in ovaries seen in ultrasound scan
                   </label>
                   <p className="text-sm text-gray-400 mt-1">
                     Multiple small cysts (≥12 follicles) in one or both ovaries, or increased ovarian volume
                   </p>
                 </div>
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="N"
-                    checked={criteriaA === 'N'}
-                    onChange={(e) => setCriteriaA(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaA('Y')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaA === 'Y'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaA('N')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaA === 'N'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    No
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="Y"
-                    checked={criteriaB === 'Y'}
-                    onChange={(e) => setCriteriaB(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
-                </div>
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <label className="text-gray-300 font-medium cursor-pointer" onClick={() => setCriteriaB(criteriaB === 'Y' ? 'N' : 'Y')}>
+                  <label className="text-gray-300 font-medium">
                     Irregular menstrual cycle
                   </label>
                   <p className="text-sm text-gray-400 mt-1">
                     Cycles longer than 35 days, fewer than 8 cycles per year, or absence of menstruation
                   </p>
                 </div>
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="N"
-                    checked={criteriaB === 'N'}
-                    onChange={(e) => setCriteriaB(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaB('Y')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaB === 'Y'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaB('N')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaB === 'N'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    No
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-start space-x-4">
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="Y"
-                    checked={criteriaC === 'Y'}
-                    onChange={(e) => setCriteriaC(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
-                </div>
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <label className="text-gray-300 font-medium cursor-pointer" onClick={() => setCriteriaC(criteriaC === 'Y' ? 'N' : 'Y')}>
+                  <label className="text-gray-300 font-medium">
                     Hyperandrogenism
                   </label>
                   <p className="text-sm text-gray-400 mt-1">
                     Elevated male hormones causing acne, excess facial/body hair, or male-pattern baldness
                   </p>
                 </div>
-                <div className="flex items-center h-5">
-                  <input
-                    type="radio"
-                    value="N"
-                    checked={criteriaC === 'N'}
-                    onChange={(e) => setCriteriaC(e.target.value)}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                  />
+                <div className="flex space-x-2 ml-4">
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaC('Y')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaC === 'Y'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    Yes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCriteriaC('N')}
+                    className={`px-4 py-2 rounded text-sm font-medium ${
+                      criteriaC === 'N'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
+                    }`}
+                  >
+                    No
+                  </button>
                 </div>
               </div>
             </div>
